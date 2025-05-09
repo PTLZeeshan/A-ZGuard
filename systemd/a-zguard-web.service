@@ -1,0 +1,12 @@
+[Unit]
+Description=DNS Guardian Web UI
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/A-ZGuard
+ExecStart=/root/A-ZGuard/venv/bin/python3 app.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

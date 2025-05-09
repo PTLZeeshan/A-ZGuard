@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UDR Settings</title>
+    <style>
+        body { font-family: Arial; margin: 40px; background-color: #f4f4f4; }
+        form { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 8px #ccc; }
+        label { display: block; margin-top: 10px; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;
+        }
+        button { margin-top: 20px; padding: 10px 20px; background-color: #2c3e50; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #1a252f; }
+    </style>
+</head>
+<body>
+    <form method="POST" action="/settings">
+        <h2>🔧 UniFi Router Credentials</h2>
+        <label for="UDR">UDR IP Address:</label>
+        <input type="text" id="UDR" name="UDR" required value="{{ settings.UDR }}">
+
+        <label for="USERNAME">Username:</label>
+        <input type="text" id="USERNAME" name="USERNAME" required value="{{ settings.USERNAME }}">
+
+        <label for="PASSWORD">Password:</label>
+        <input type="password" id="PASSWORD" name="PASSWORD" required value="{{ settings.PASSWORD }}">
+
+        <button type="submit">💾 Save Settings</button>
+    </form>
+</body>
+</html>

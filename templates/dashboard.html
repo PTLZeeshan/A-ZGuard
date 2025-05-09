@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DNS Guardian Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background-color: #f0f0f0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.dark {
+            background-color: #121212;
+            color: #f0f0f0;
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            position: fixed;
+        }
+
+        .sidebar h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .sidebar a:hover {
+            background-color: #34495e;
+        }
+
+        .main {
+            margin-left: 240px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .top-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .top-controls input[type="text"] {
+            padding: 6px;
+            flex: 1;
+        }
+
+        button {
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+
+        .tabs {
+            margin-bottom: 15px;
+        }
+
+        .tab-button {
+            padding: 6px 12px;
+            margin-right: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        body.dark tr:hover {
+            background-color: #1e1e1e;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .approved { background-color: #c8e6c9; color: #256029; }
+        .pending { background-color: #ffcdd2; color: #c62828; }
+        .redirected { background-color: #ffe0b2; color: #e65100; }
+
+        .dark .approved { background-color: #2e7d32; color: #fff; }
+        .dark .pending { background-color: #c62828; color: #fff; }
+        .dark .redirected { background-color: #ff9800; color: #000; }
+
+        .status-column {
+            text-align: center;
+        }
+
+        .dark input, .dark textarea {
+            background-color: #1f1f1f;
+            color: #fff;
+        }
+    </style>
+</head>
+<body onload="applySavedTheme(); refreshStats(); setInterval(refreshStats, 10000);">
+    <div class="sidebar">
+        <h2>🛡 DNS Guardian</h2>
+        <a href="#" onclick="toggleDarkMode()">🌙 Toggle Dark Mode</a>
+        <a href="/forwarders">🛠 DNS Forwarders</a>
+        <a href="/tuning">⚙️ Unbound Tuning</a>
+        <a href="/firewall-logs">📊 Firewall Logs</a>
+        <a href="/settings">🔐 Router Settings</a> 
+        <form method="POST" action="/sync-dns">
+            <button style="width: 100%; margin-top: 10px;">🔄 Sync DNS/Firewall</button>
+        </form>
+    </div>
+
+    <div class="main">
+        <h2>Guardian DNS Dashboard</h2>
+         <!-- Router connection status -->
+    <div id="router-status" style="margin-bottom: 10px; font-weight: bold;">
+      Router API: {{ '✅ Connected' if router_connected else '❌ Disconnected' }}
+    </div>
+
+    <div class="top-controls">
+      <!-- existing controls… -->
+    </div>
+
+        <div class="top-controls">
+            <input type="text" id="search" placeholder="Search MAC/IP/Name..." onkeyup="filterTable()">
+            <button onclick="manualScan()">🔍 Manual Scan</button>
+            <button onclick="clearAll()">🧹 Clear All</button>
+            <button onclick="exportCSV()">📄 Export CSV</button>
+            <button onclick="exportJSON()">📄 Export JSON</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button" onclick="showTab('All')">📋 All</button>
+            <button class="tab-button" onclick="showTab('approved')">✅ Whitelisted</button>
+            <button class="tab-button" onclick="showTab('pending')">🚫 Blocked</button>
+            <button class="tab-button" onclick="showTab('redirected')">🔁 Redirected</button>
+        </div>
+
+        <form id="bulk-actions">
+            <table id="device-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="select-all" onclick="toggleAll(this)"></th>
+                        <th>MAC</th>
+                        <th>IP</th>
+                        <th>Name</th>
+                        <th class="status-column">Status</th>
+                        <th>Redirect</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="device-rows">
+                    {% for mac, entry in data.items() %}
+                    <tr data-status="{{ entry.status }}" {% if entry.status == 'pending' %}style="opacity: 0.4;"{% endif %}>
+                        <td><input type="checkbox" name="selected" value="{{ mac }}"></td>
+                        <td>{{ mac }}</td>
+                        <td>{{ entry.ip }}</td>
+                        <td>{{ entry.name }} {% if entry.status == 'approved' %}🔒{% endif %}</td>
+                        <td class="status-column">
+                            <span class="badge {{ entry.status }}">{{ entry.status | capitalize }}</span>
+                        </td>
+                        <td>
+                            {% if entry.status == 'redirected' %}
+                                <input type="text" value="{{ entry.redirect or '' }}">
+                                <button onclick="updateRedirect('{{ mac }}', this.previousElementSibling.value)">✔</button>
+                                <button onclick="clearRedirect('{{ mac }}')">❌</button>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button onclick="setStatus('{{ mac }}','approved')">Approve</button>
+                            <button onclick="promptRedirect('{{ mac }}')">Redirect</button>
+                            <button onclick="setStatus('{{ mac }}','pending')">Block</button>
+                            <button onclick="refreshName('{{ mac }}')">🔄</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+    </div>
+
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark");
+            localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+        }
+
+        function applySavedTheme() {
+            if (localStorage.getItem("theme") === "dark") {
+                document.body.classList.add("dark");
+            }
+        }
+
+        function showTab(status) {
+            document.querySelectorAll("#device-rows tr").forEach(row => {
+                row.style.display = (status === "All" || row.dataset.status === status) ? "" : "none";
+            });
+        }
+
+        function filterTable() {
+            const filter = document.getElementById("search").value.toLowerCase();
+            document.querySelectorAll("#device-rows tr").forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+            });
+        }
+
+        function refreshStats() {
+            fetch("/api/stats")
+                .then(res => res.json())
+                .then(data => console.log("Stats updated", data));
+        }
+
+        function toggleAll(source) {
+            document.querySelectorAll("input[name='selected']").forEach(cb => cb.checked = source.checked);
+        }
+
+        function setStatus(mac, status) {
+            window.location.href = `/set/${mac}/${status}`;
+        }
+
+        function promptRedirect(mac) {
+            const target = prompt("Enter redirect IP or domain:");
+            if (target) updateRedirect(mac, target);
+        }
+
+        function updateRedirect(mac, target) {
+            fetch(`/redirect/${mac}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ redirect: target })
+            }).then(() => location.reload());
+        }
+
+        function clearRedirect(mac) {
+            fetch(`/redirect/${mac}`, { method: 'DELETE' }).then(() => location.reload());
+        }
+
+        function refreshName(mac) {
+            fetch(`/refresh-name/${mac}`).then(() => location.reload());
+        }
+
+        function manualScan() {
+            fetch('/manual-scan')
+                .then(res => res.json())
+                .then(result => {
+                    alert(result.message);
+                    location.reload();
+                });
+        }
+
+        function clearAll() {
+            if (confirm("This will backup and clear all entries. Proceed?")) {
+                fetch('/clear-all', { method: 'POST' }).then(() => location.reload());
+            }
+        }
+
+        function exportCSV() {
+            window.location.href = '/export/csv';
+        }
+
+        function exportJSON() {
+            window.location.href = '/export/json';
+        }
+    </script>
+</body>
+</html>

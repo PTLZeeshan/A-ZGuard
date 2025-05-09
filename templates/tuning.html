@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unbound Tuning</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f4f4f4; }
+        .alert { padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .success { background-color: #c8e6c9; color: #256029; }
+        .error { background-color: #ffcdd2; color: #c62828; }
+        textarea { width: 100%; height: 250px; font-family: monospace; }
+        .preset { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Unbound Tuning</h2>
+    {% if message %}
+        <div class="alert {{ 'success' if success else 'error' }}">{{ message }}</div>
+    {% endif %}
+
+    <form method="POST" action="/tuning">
+        <label>Unbound server block:</label><br>
+        <textarea name="config">{{ config }}</textarea><br>
+        <button type="submit">Apply & Restart</button>
+    </form>
+
+    <div class="preset">
+        <h3>Presets</h3>
+        <form method="POST" action="/tuning">
+            <input type="hidden" name="preset" value="low">
+            <button type="submit">Low Memory</button>
+        </form>
+        <form method="POST" action="/tuning">
+            <input type="hidden" name="preset" value="balanced">
+            <button type="submit">Balanced</button>
+        </form>
+        <form method="POST" action="/tuning">
+            <input type="hidden" name="preset" value="high">
+            <button type="submit">High Performance</button>
+        </form>
+    </div>
+</body>
+</html>

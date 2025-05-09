@@ -1,0 +1,15 @@
+[Unit]
+Description=DNS Guardian Scanner Service
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/A-ZGuard
+ExecStart=/opt/A-ZGuard/venv/bin/python3 /opt/A-ZGuard/scanner.py
+Restart=always
+RestartSec=30s
+User=root
+StandardOutput=append:/var/log/a-zguard-scanner.log
+StandardError=append:/var/log/a-zguard-scanner.log
+
+[Install]
+WantedBy=multi-user.target
